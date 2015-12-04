@@ -1,10 +1,15 @@
 #!/usr/bin/env python
 
+import numpy as np
 import cv2
 import sys
 
 cascade_path="/usr/share/OpenCV/haarcascades/"
 statefile="/tmp/facestatus.dat"
+
+samples_to_keep = 6
+state_change_threshold = 2  # consider the state changed if this many samples change
+poll_interval_ms = 100   # time to wait between samples
 
 camera = cv2.VideoCapture(0)
 
@@ -59,7 +64,7 @@ def write_state(filename, state):
 
 face_cascade = cv2.CascadeClassifier(cascade_path + 'haarcascade_frontalface_default.xml')
 
-rbuf = RingBuffer(5)
+rbuf = RingBuffer(samples_to_keep)  # keep the last N states
 prev_detect = False
 write_state(statefile, prev_detect)
 
@@ -88,14 +93,14 @@ try:
 
         #show_img(img)
 
-        state = all(rbuf.get())
+        state = np.count_nonzero(rbuf.get()) > state_change_threshold
 
         if state != prev_detect:
             print "State changed: ", state
             write_state(statefile, state)
             prev_detect = state
 
-        if cv2.waitKey(100) & 0xFF == ord('q'):
+        if cv2.waitKey(poll_interval_ms) & 0xFF == ord('q'):
             done()
 
 except KeyboardInterrupt:
